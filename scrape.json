@@ -1,0 +1,6 @@
+{
+  "family": "court-judgments",
+  "about": "High Court + Supreme Court case metadata from the public AWS Open Data buckets (party names, judges, dates, disposal, acts, advocates). Metadata only, not the judgment PDFs.",
+  "setup": ["pip install -r requirements.txt"],
+  "tasks": { "meta": ["python", "meta.py"] }
+}
