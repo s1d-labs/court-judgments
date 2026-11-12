@@ -30,14 +30,27 @@ def s3():
     return boto3.client("s3", region_name=REGION, config=Config(signature_version=UNSIGNED, max_pool_connections=16))
 
 
-def read_rows(bucket, key):
-    body = s3().get_object(Bucket=bucket, Key=key)["Body"].read()
+def read_rows(bucket, key, hub=None):
+    """Download one parquet object. Reports n_http / t_http_s / http_<code> to the hub (its speed control runs on them)."""
+    t = time.time()
+    try:
+        resp = s3().get_object(Bucket=bucket, Key=key)
+        body = resp["Body"].read()
+    except Exception as e:
+        if hub is not None:
+            code = getattr(e, "response", {}).get("ResponseMetadata", {}).get("HTTPStatusCode")
+            hub.metric(f"http_{code}" if code else "http_error")
+        raise
+    finally:
+        if hub is not None:
+            hub.metric("n_http")
+            hub.metric("t_http_s", time.time() - t)
     return pq.read_table(io.BytesIO(body)).to_pylist()
 
 
 def do_item(hub, item):
     p = item["payload"]
-    rows = read_rows(p["bucket"], p["key"])
+    rows = read_rows(p["bucket"], p["key"], hub)
     fn = parse.row_case if p.get("kind") == "case" else parse.row_meta
     n = 0
     seen = set()
@@ -84,6 +97,9 @@ class LocalHub:
 
     def __init__(self):
         self.n = 0
+
+    def metric(self, name, value=1):
+        pass
 
     def record(self, rid, data):
         self.n += 1
