@@ -92,26 +92,24 @@ def main():
         raise
 
 
-class LocalHub:
-    settings = {"paused": False}
+def local_hub():
+    """The client's LocalHub (counters in .counts), printing only the first 4 records: one parquet holds thousands."""
+    from scrape_hub_client import LocalHub
 
-    def __init__(self):
-        self.n = 0
+    class FirstRecords(LocalHub):
+        def record(self, record_id, data):
+            if self.records < 4:
+                super().record(record_id, data)
+            else:
+                self.records += 1
 
-    def metric(self, name, value=1):
-        pass
-
-    def record(self, rid, data):
-        self.n += 1
-        if self.n <= 4:
-            import json
-            print(json.dumps({"record_id": rid, "data": data}, ensure_ascii=False, default=str))
+    return FirstRecords()
 
 
 if __name__ == "__main__":
     if sys.argv[1:2] == ["--local"]:
-        hub = LocalHub()
+        hub = local_hub()
         n = do_item(hub, {"payload": {"bucket": sys.argv[2], "key": sys.argv[3], "kind": sys.argv[4] if len(sys.argv) > 4 else "meta"}})
-        print(f"{n} records", file=sys.stderr)
+        print(f"{n} records, counters {hub.counts}", file=sys.stderr)
     else:
         main()
